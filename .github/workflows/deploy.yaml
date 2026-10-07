@@ -1,0 +1,40 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  publish:
+    name: Publish release to ShotGrid
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Zip repository
+        uses: vimtor/action-zip@v1.2
+        with:
+          files: /
+          dest: "VEXS-Shotgrid-Config-${{ github.sha }}.zip"
+
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.10.16
+
+      - name: Install dependencies
+        run: |
+          python -m pip install git+https://github.com/shotgunsoftware/python-api.git@v3.7.0
+
+      - name: Upload file to ShotGrid
+        run: python ".github/workflows/sg_uploader.py" -type "PipelineConfiguration" -id 166 -field "uploaded_config" -i "VEXS-Shotgrid-Config-${{ github.sha }}.zip"
+        shell: bash
+        env:
+          SHOTGRID_SITE: "${{ secrets.SHOTGRID_BASE_URL }}"
+          SHOTGRID_SCRIPT_USER: "${{ secrets.SHOTGRID_SCRIPT_NAME }}"
+          SHOTGRID_APPLICATION_KEY: "${{ secrets.SHOTGRID_API_KEY }}"
