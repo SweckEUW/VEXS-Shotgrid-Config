@@ -32,9 +32,10 @@ jobs:
           python -m pip install git+https://github.com/shotgunsoftware/python-api.git@v3.7.0
 
       - name: Upload file to ShotGrid
-        run: python ".github/workflows/sg_uploader.py" -type "PipelineConfiguration" -id 166 -field "uploaded_config" -i "VEXS-Shotgrid-Config-${{ github.sha }}.zip"
+        run: python ".github/workflows/sg_uploader.py" -type "PipelineConfiguration" -id ${{ secrets.SHOTGRID_PIPELINE_CONFIG_ID }} -field "uploaded_config" -i "VEXS-Shotgrid-Config-${{ github.sha }}.zip"
         shell: bash
         env:
           SHOTGRID_SITE: "${{ secrets.SHOTGRID_BASE_URL }}"
           SHOTGRID_SCRIPT_USER: "${{ secrets.SHOTGRID_SCRIPT_NAME }}"
           SHOTGRID_APPLICATION_KEY: "${{ secrets.SHOTGRID_API_KEY }}"
+          SHOTGRID_PIPELINE_CONFIG_ID: "${{ secrets.ShotGRID_PIPELINE_CONFIG_ID }}"
