@@ -41,6 +41,7 @@ settings.tk-desktop.project:
     tk-multi-screeningroom: "@settings.tk-multi-screeningroom.rv"
   groups:
   - matches:
+    - "*Blender*"
     - "*Fla*"
     - "*Houdini*"
     - "*Mari*"

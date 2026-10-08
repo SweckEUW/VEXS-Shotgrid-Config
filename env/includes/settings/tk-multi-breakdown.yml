@@ -15,6 +15,11 @@ includes:
 
 ################################################################################
 
+# blender
+settings.tk-multi-breakdown.blender:
+  hook_scene_operations: '{engine}/tk-multi-breakdown/tk-blender_scene_operations.py'
+  location: "@apps.tk-multi-breakdown.location"
+
 # nuke studio
 settings.tk-multi-breakdown.nukestudio:
   hook_scene_operations: '{self}/tk-nuke_scene_operations.py'

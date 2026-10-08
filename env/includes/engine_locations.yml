@@ -25,6 +25,11 @@ engines.tk-alias.location:
   type: app_store
   name: tk-alias
   version: v4.4.0
+# community engine (github.com/diegogarciahuerta/tk-blender v1.1.1), bundled
+# with this config and patched for Blender 4.2+ / 5.x
+engines.tk-blender.location:
+  type: path
+  path: "{CONFIG_FOLDER}/bundles/tk-blender"
 engines.tk-desktop.location:
   type: app_store
   name: tk-desktop

@@ -14,6 +14,10 @@
 
 ################################################################################
 
+# Blender: shared PySide6 install (Blender does not ship Qt). Must stay below
+# PySide6 6.11, see bundles/tk-blender/README_VEXS.md
+path.windows.blender_pyside: G:\Meine Ablage\Uni\TH OWL\Semester 6\Bachelorarbeit\VEXS\VEXS-Daten\PySide6
+
 # Mari
 path.linux.mari: "/usr/local/Mari7.5v2/mari"
 path.windows.mari: C:\Program Files\Mari7.5v2\Bundle\bin\Mari7.5v2.exe

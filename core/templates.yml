@@ -287,6 +287,27 @@ paths:
 
 
     #
+    # Blender
+    #
+
+    # define the location of a work area
+    shot_work_area_blender:
+        definition: '@shot_root/work/blender'
+    # define the location of a publish area
+    shot_publish_area_blender:
+        definition: '@shot_root/publish/blender'
+    # The location of WIP files
+    blender_shot_work:
+        definition: '@shot_root/work/blender/{name}.v{version}.blend'
+    # The location of backups of WIP files
+    blender_shot_snapshot:
+        definition: '@shot_root/work/blender/snapshots/{name}.v{version}.{timestamp}.blend'
+    # The location of published blender files
+    blender_shot_publish:
+        definition: '@shot_root/publish/blender/{name}.v{version}.blend'
+
+
+    #
     # Maya
     #
 
@@ -496,6 +517,26 @@ paths:
     #
     asset_mari_texture_tif:
         definition: '@asset_root/publish/mari/{name}_{mari.channel}[_{mari.layer}].v{version}.{UDIM}.tif'
+
+    #
+    # Blender
+    #
+
+    # define the location of a work area
+    asset_work_area_blender:
+        definition: '@asset_root/work/blender'
+    # define the location of a publish area
+    asset_publish_area_blender:
+        definition: '@asset_root/publish/blender'
+    # The location of WIP files
+    blender_asset_work:
+        definition: '@asset_root/work/blender/{name}.v{version}.blend'
+    # The location of backups of WIP files
+    blender_asset_snapshot:
+        definition: '@asset_root/work/blender/snapshots/{name}.v{version}.{timestamp}.blend'
+    # The location of published blender files
+    blender_asset_publish:
+        definition: '@asset_root/publish/blender/{name}.v{version}.blend'
 
     #
     # Maya
