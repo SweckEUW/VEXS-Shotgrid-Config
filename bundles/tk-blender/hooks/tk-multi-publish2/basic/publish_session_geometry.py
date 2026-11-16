@@ -21,6 +21,14 @@ import bpy
 
 HookBaseClass = sgtk.get_hook_baseclass()
 
+# Export operator (bpy.ops module, operator name) and publish type per format.
+# The publish types match the action mappings of the Blender loader.
+GEOMETRY_EXPORTERS = {
+    "abc": {"operator": ("wm", "alembic_export"), "publish_type": "Alembic Cache"},
+    "fbx": {"operator": ("export_scene", "fbx"), "publish_type": "FBX File"},
+    "glb": {"operator": ("export_scene", "gltf"), "publish_type": "Glb File"},
+}
+
 
 def get_view3d_operator_context():
     """
@@ -67,9 +75,10 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
 
         return """
         <p>This plugin publishes session geometry for the current session. Any
-        session geometry will be exported to the path defined by this plugin's
-        configured "Publish Template" setting. The plugin will fail to validate
-        if the "AbcExport" plugin is not enabled or cannot be found.</p>
+        session geometry will be exported as Alembic, FBX or glTF Binary
+        (configured "Export Format" setting) to the path defined by this
+        plugin's configured "Publish Template" setting. The item is not
+        offered if the exporter is not available in this Blender.</p>
         """
 
     @property
@@ -102,7 +111,19 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
                 "description": "Template path for published work files. Should"
                 "correspond to a template defined in "
                 "templates.yml.",
-            }
+            },
+            "Export Format": {
+                "type": "str",
+                "default": "abc",
+                "description": "Geometry format to export: abc, fbx or glb. "
+                "Only the collected item of this format is accepted.",
+            },
+            "Checked": {
+                "type": "bool",
+                "default": True,
+                "description": "Whether the item is checked in the publisher "
+                "by default.",
+            },
         }
 
         # update the base settings
@@ -119,7 +140,7 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         accept() method. Strings can contain glob patters such as *, for example
         ["blender.*", "file.blender"]
         """
-        return ["blender.session.geometry"]
+        return ["blender.session.geometry.*"]
 
     def accept(self, settings, item):
         """
@@ -147,6 +168,19 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         :returns: dictionary with boolean keys accepted, required and enabled
         """
 
+        # every configured instance of this plugin only handles its own format,
+        # return before touching the item so the other instances keep theirs
+        geometry_format = settings["Export Format"].value
+        if item.properties.get("geometry_format") != geometry_format:
+            return {"accepted": False}
+
+        if geometry_format not in GEOMETRY_EXPORTERS:
+            self.logger.warning(
+                "Unknown geometry export format '%s'. Not accepting the item."
+                % geometry_format
+            )
+            return {"accepted": False}
+
         accepted = True
         publisher = self.parent
         template_name = settings["Publish Template"].value
@@ -173,11 +207,12 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         # for use in subsequent methods
         item.properties["publish_template"] = publish_template
 
-        # check that the AbcExport command is available!
-        if not bpy.app.build_options.alembic:
+        # check that the export command is available!
+        alembic_missing = geometry_format == "abc" and not bpy.app.build_options.alembic
+        if alembic_missing or _get_export_operator(geometry_format) is None:
             self.logger.debug(
-                "Item not accepted because alembic export command "
-                "is not available in this version of Blender"
+                "Item not accepted because the %s export command "
+                "is not available in this version of Blender" % geometry_format
             )
             accepted = False
 
@@ -186,7 +221,7 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         # natively.
         item.context_change_allowed = False
 
-        return {"accepted": accepted, "checked": True}
+        return {"accepted": accepted, "checked": settings["Checked"].value}
 
     def validate(self, settings, item):
         """
@@ -252,6 +287,11 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         if "version" in work_fields:
             item.properties["publish_version"] = work_fields["version"]
 
+        # set explicitly, the extension lookup of the base plugin would
+        # register .fbx as "Motion Builder FBX"
+        geometry_format = settings["Export Format"].value
+        item.properties["publish_type"] = GEOMETRY_EXPORTERS[geometry_format]["publish_type"]
+
         # run the base class validation
         return super(BlenderSessionGeometryPublishPlugin, self).validate(settings, item)
 
@@ -272,24 +312,16 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         publish_folder = os.path.dirname(publish_path)
         self.parent.ensure_folder_exists(publish_folder)
 
-        start_frame, end_frame = _find_scene_animation_range()
+        geometry_format = settings["Export Format"].value
 
         try:
             context = get_view3d_operator_context()
+            exporter = _get_export_operator(geometry_format)
 
-            export_args = {
-                "filepath": publish_path,
-                "selected": False,
-                "renderable_only": True,
-                "uvs": True,
-                "face_sets": True,
-                "start": start_frame,
-                "end": end_frame,
-                "as_background_job": False,
-            }
+            export_args = _get_export_args(geometry_format, publish_path)
             # only pass the options this Blender version knows about
             # (e.g. `renderable_only` was removed in Blender 5.0)
-            supported_args = bpy.ops.wm.alembic_export.get_rna_type().properties.keys()
+            supported_args = exporter.get_rna_type().properties.keys()
             export_args = {
                 key: value
                 for key, value in export_args.items()
@@ -299,9 +331,9 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
             # passing the override dict to the operator was removed in 4.0
             if context:
                 with bpy.context.temp_override(**context):
-                    bpy.ops.wm.alembic_export(**export_args)
+                    exporter(**export_args)
             else:
-                bpy.ops.wm.alembic_export(**export_args)
+                exporter(**export_args)
 
         except Exception as e:
             error_msg = "Failed to export Geometry: %s" % e
@@ -310,6 +342,55 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
 
         # Now that the path has been generated, hand it off to the
         super(BlenderSessionGeometryPublishPlugin, self).publish(settings, item)
+
+
+def _get_export_operator(geometry_format):
+    """
+    Returns the export operator for the given format in this version of
+    Blender, or None.
+    """
+    module_name, operator_name = GEOMETRY_EXPORTERS[geometry_format]["operator"]
+    module = getattr(bpy.ops, module_name, None)
+    # `bpy.ops.<module>.<anything>` always returns an operator wrapper,
+    # so check that the operator actually exists
+    if module is not None and operator_name in dir(module):
+        return getattr(module, operator_name)
+    return None
+
+
+def _get_export_args(geometry_format, publish_path):
+    """
+    Returns the export operator options for the given format.
+    """
+    if geometry_format == "abc":
+        start_frame, end_frame = _find_scene_animation_range()
+        return {
+            "filepath": publish_path,
+            "selected": False,
+            "renderable_only": True,
+            "uvs": True,
+            "face_sets": True,
+            "start": start_frame,
+            "end": end_frame,
+            "as_background_job": False,
+        }
+
+    if geometry_format == "fbx":
+        # embed the textures so the file works on its own, e.g. on the VEXS server
+        return {
+            "filepath": publish_path,
+            "use_selection": False,
+            "path_mode": "COPY",
+            "embed_textures": True,
+        }
+
+    # glb packs geometry, materials and textures into one binary file
+    return {
+        "filepath": publish_path,
+        "export_format": "GLB",
+        "use_selection": False,
+        "export_apply": True,
+    }
 
 
 def _find_scene_animation_range():

@@ -108,10 +108,25 @@ settings.tk-multi-publish2.blender.asset_step:
     hook: "{self}/publish_file.py:{engine}/tk-multi-publish2/basic/publish_session.py"
     settings:
         Publish Template: blender_asset_publish
+  # one geometry item per format in the publisher, (un)checkable separately
   - name: Publish to Flow Production Tracking
     hook: "{self}/publish_file.py:{engine}/tk-multi-publish2/basic/publish_session_geometry.py"
     settings:
         Publish Template: asset_alembic_cache
+        Export Format: abc
+        Checked: true
+  - name: Publish to Flow Production Tracking
+    hook: "{self}/publish_file.py:{engine}/tk-multi-publish2/basic/publish_session_geometry.py"
+    settings:
+        Publish Template: asset_fbx_geometry
+        Export Format: fbx
+        Checked: false
+  - name: Publish to Flow Production Tracking
+    hook: "{self}/publish_file.py:{engine}/tk-multi-publish2/basic/publish_session_geometry.py"
+    settings:
+        Publish Template: asset_glb_geometry
+        Export Format: glb
+        Checked: false
   post_phase: "{config}/tk-multi-publish2/vexs_post_phase.py"
   help_url: *help_url
   location: "@apps.tk-multi-publish2.location"

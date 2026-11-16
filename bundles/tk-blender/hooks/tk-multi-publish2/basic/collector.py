@@ -22,6 +22,15 @@ __contact__ = "https://www.linkedin.com/in/diegogh/"
 
 HookBaseClass = sgtk.get_hook_baseclass()
 
+# Geometry formats the session can be exported to, one publish item each so
+# they can be (un)checked separately in the publisher.
+# The "Export Format" setting of publish_session_geometry.py picks the item up.
+GEOMETRY_FORMATS = [
+    ("abc", "Alembic"),
+    ("fbx", "FBX"),
+    ("glb", "glTF Binary"),
+]
+
 
 class BlenderSessionCollector(HookBaseClass):
     """
@@ -86,18 +95,21 @@ class BlenderSessionCollector(HookBaseClass):
 
     def _collect_session_geometry(self, parent_item):
         """
-        Creates items for session geometry to be exported.
+        Creates items for session geometry to be exported, one per format.
         :param parent_item: Parent Item instance
         """
 
-        geo_item = parent_item.create_item(
-            "blender.session.geometry", "Geometry", "All Session Geometry"
-        )
-
-        # get the icon path to display for this item
+        # get the icon path to display for the items
         icon_path = os.path.join(self.disk_location, os.pardir, "icons", "geometry.png")
 
-        geo_item.set_icon_from_path(icon_path)
+        for geometry_format, label in GEOMETRY_FORMATS:
+            geo_item = parent_item.create_item(
+                "blender.session.geometry.%s" % geometry_format,
+                "Geometry (%s)" % label,
+                "All Session Geometry",
+            )
+            geo_item.properties["geometry_format"] = geometry_format
+            geo_item.set_icon_from_path(icon_path)
 
     def collect_current_blender_session(self, settings, parent_item):
         """

@@ -74,8 +74,17 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
   - `{asset,shot}_{work,publish}_area_blender`
 
   Beispiel: `assets/Prop/chair/model/work/blender/scene.v001.blend`
-- Publish: Die `.blend`-Datei wird als *Blender Project File* veröffentlicht. Im Asset-Step kommt
-  zusätzlich ein Alembic-Cache dazu (`asset_alembic_cache`).
+- Publish: Die `.blend`-Datei wird als *Blender Project File* veröffentlicht. Im Asset-Step kann
+  die Geometrie zusätzlich exportiert werden, jedes Format ist ein eigenes Item im Publisher:
+
+  | Item | Template | Publish Type | Standard |
+  |---|---|---|---|
+  | Geometry (Alembic) | `asset_alembic_cache` | Alembic Cache | angehakt |
+  | Geometry (FBX) | `asset_fbx_geometry` | FBX File | nicht angehakt |
+  | Geometry (glTF Binary) | `asset_glb_geometry` | Glb File | nicht angehakt |
+
+  Ob ein Format standardmäßig angehakt ist, steht im Plugin-Setting `Checked`
+  (`env/includes/settings/tk-multi-publish2.yml`).
 - Nach dem Asset-Publish meldet `hooks/tk-multi-publish2/vexs_post_phase.py` jede gepublishte
   Datei an den VEXS-Server. Die Graphen schreiben nach `asset_vexs_output_area`
   (`review/vexs/{name}/v{version}/{vexs_format}`).
@@ -113,8 +122,12 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
   - Compositor über `scene.compositing_node_group` (5.0) und Sequencer über `strips` (4.4+/5.0)
   - Clips und Bilder werden über `bpy.data.*.load()` geladen.
   - Defekte Aufrufe aus dem Original sind entfernt.
+- `hooks/tk-multi-publish2/basic/collector.py`: Pro Geometrie-Format (abc, fbx, glb) wird ein
+  eigenes Item `blender.session.geometry.<format>` angelegt.
 - `hooks/tk-multi-publish2/basic/publish_session_geometry.py`
-  - Der Alembic-Export läuft über `temp_override`.
+  - Export als Alembic, FBX (Texturen eingebettet) oder GLB über das Setting `Export Format`.
+    Jede Plugin-Instanz nimmt nur das Item ihres Formats an.
+  - Der Export läuft über `temp_override`.
   - Es werden nur noch Optionen übergeben, die die jeweilige Blender-Version kennt
     (`renderable_only` gibt es in 5.0 nicht mehr).
 - `hooks/thumbnail.py`: Screenshot über `QScreen.grabWindow` (Qt6)
@@ -127,6 +140,6 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
 ## Bekannte Einschränkungen
 
 - Collada (`.dae`) gibt es in Blender 5.0 nicht mehr und kann daher nicht importiert werden.
-- Für Shots ist kein Alembic-Publish konfiguriert, weil es kein Shot-Alembic-Template gibt.
+- Für Shots ist kein Geometrie-Publish konfiguriert, weil es keine Shot-Geometrie-Templates gibt.
 - Das Shotgun Panel bietet nur die generischen Aktionen und keine Blender-Loader-Aktionen.
 - Die Engine ist ein Community-Projekt und nicht offiziell von Autodesk unterstützt.

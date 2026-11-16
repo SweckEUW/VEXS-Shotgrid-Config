@@ -468,6 +468,15 @@ paths:
     asset_alembic_cache:
         definition: '@asset_root/publish/caches/{name}.v{version}.abc'
 
+    #
+    # Geometry exports
+    #
+
+    asset_fbx_geometry:
+        definition: '@asset_root/publish/fbx/{name}.v{version}.fbx'
+    asset_glb_geometry:
+        definition: '@asset_root/publish/glb/{name}.v{version}.glb'
+
 
     #
     # Photoshop
