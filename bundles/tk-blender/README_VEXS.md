@@ -76,6 +76,9 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
   Beispiel: `assets/Prop/chair/model/work/blender/scene.v001.blend`
 - Publish: Die `.blend`-Datei wird als *Blender Project File* veröffentlicht. Im Asset-Step kommt
   zusätzlich ein Alembic-Cache dazu (`asset_alembic_cache`).
+- Nach dem Asset-Publish meldet `hooks/tk-multi-publish2/vexs_post_phase.py` jede gepublishte
+  Datei an den VEXS-Server. Die Graphen schreiben nach `asset_vexs_output_area`
+  (`review/vexs/{name}/v{version}/{vexs_format}`).
 - Loader: `.blend` per Link/Append. Import von Alembic, FBX, USD, OBJ, STL, PLY, glTF, SVG und BVH.
   Bilder, Movies und Sounds landen im Sequencer bzw. im Compositor.
 

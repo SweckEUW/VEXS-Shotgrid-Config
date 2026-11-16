@@ -163,6 +163,11 @@ keys:
         format_spec: "05"
         alias: SEQ
 
+    # File extension of the published file a VEXS graph runs on (blend, abc, fbx, glb)
+    vexs_format:
+        type: str
+        filter_by: alphanumeric
+
 
 #
 # The paths section contains all the the key locations where files are to be stored
@@ -537,6 +542,15 @@ paths:
     # The location of published blender files
     blender_asset_publish:
         definition: '@asset_root/publish/blender/{name}.v{version}.blend'
+
+    #
+    # VEXS
+    #
+
+    # Output folder of the VEXS graphs that run after an asset publish,
+    # one subfolder per published file format so the runs don't overwrite each other
+    asset_vexs_output_area:
+        definition: '@asset_root/review/vexs/{name}/v{version}/{vexs_format}'
 
     #
     # Maya
