@@ -110,14 +110,64 @@ def _run_with_window_context(callback):
         return callback()
 
 
+if sys.platform == "win32":
+    import ctypes
+    from ctypes import wintypes
+
+    class _GUITHREADINFO(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", wintypes.DWORD),
+            ("flags", wintypes.DWORD),
+            ("hwndActive", wintypes.HWND),
+            ("hwndFocus", wintypes.HWND),
+            ("hwndCapture", wintypes.HWND),
+            ("hwndMenuOwner", wintypes.HWND),
+            ("hwndMoveSize", wintypes.HWND),
+            ("hwndCaret", wintypes.HWND),
+            ("rcCaret", wintypes.RECT),
+        ]
+
+    # GUI_INMOVESIZE | GUI_INMENUMODE | GUI_SYSTEMMENUMODE | GUI_POPUPMENUMODE
+    _GUI_MODAL_LOOP_FLAGS = 0x02 | 0x04 | 0x08 | 0x10
+
+    def _in_native_modal_loop():
+        """
+        Returns True while Windows runs a modal loop on Blender's main thread,
+        e.g. while the user resizes or moves the Blender window.
+
+        Blender keeps running its timers during these loops. Letting Qt pump
+        the thread's message queue from there re-enters the window procedure
+        and freezes or crashes Blender.
+        """
+        info = _GUITHREADINFO(cbSize=ctypes.sizeof(_GUITHREADINFO))
+        thread_id = ctypes.windll.kernel32.GetCurrentThreadId()
+        if not ctypes.windll.user32.GetGUIThreadInfo(thread_id, ctypes.byref(info)):
+            return False
+        return bool(info.flags & _GUI_MODAL_LOOP_FLAGS)
+
+else:
+
+    def _in_native_modal_loop():
+        return False
+
+
+_processing_qt_events = False
+
+
 def _process_qt_events():
     """
     Persistent timer that keeps the Qt event loop alive inside Blender.
     """
+    global _processing_qt_events
+
     app = QtWidgets.QApplication.instance()
-    if app:
-        _run_with_window_context(app.processEvents)
-        app.sendPostedEvents(None, 0)
+    if app and not _processing_qt_events and not _in_native_modal_loop():
+        _processing_qt_events = True
+        try:
+            _run_with_window_context(app.processEvents)
+            app.sendPostedEvents(None, 0)
+        finally:
+            _processing_qt_events = False
     return QT_EVENT_LOOP_INTERVAL
 
 

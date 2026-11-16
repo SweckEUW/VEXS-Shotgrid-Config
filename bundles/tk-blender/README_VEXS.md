@@ -85,6 +85,8 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
   - PySide6-Support mit Fallback auf PySide2
   - Die Qt-Eventloop läuft über einen persistenten `bpy.app.timers`-Callback statt über einen
     Modal-Operator, der beim Laden von Dateien verloren ging.
+  - Solange Windows eine modale Schleife ausführt (Fenster verschieben oder in der Größe
+    ändern, Systemmenü), setzt die Qt-Eventloop aus. Sonst hängt Blender oder stürzt ab.
   - Der Bootstrap passiert per Timer.
   - Der Menü-Eintrag wird über `TOPBAR_MT_editor_menus.append()` eingehängt statt über den
     `ast`-Hack.
