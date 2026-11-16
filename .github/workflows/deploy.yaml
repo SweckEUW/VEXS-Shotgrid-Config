@@ -14,7 +14,7 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Zip repository
         uses: vimtor/action-zip@v1.2
@@ -23,9 +23,9 @@ jobs:
           dest: "VEXS-Shotgrid-Config-${{ github.sha }}.zip"
 
       - name: setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.10.16
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
