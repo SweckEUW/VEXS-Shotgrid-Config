@@ -127,6 +127,17 @@ erscheint dann hinter dem Help-Menü der Eintrag **ShotGrid**.
 - `hooks/tk-multi-publish2/basic/publish_session_geometry.py`
   - Export als Alembic, FBX (Texturen eingebettet) oder GLB über das Setting `Export Format`.
     Jede Plugin-Instanz nimmt nur das Item ihres Formats an.
+  - Geometrie lässt sich nur zusammen mit der Blender-Session publishen. Hochgezählt wird die
+    Workfile nur im `finalize` der Session. Ohne sie würde der nächste Publish wieder auf dieselbe
+    Version treffen. Die Prüfung greift nur noch, wenn das ganze Session-Item abgehakt und danach
+    ein Geometrie-Item wieder angehakt wurde.
+  - Ist die Version schon gepublisht (auf der Platte oder in ShotGrid), schlägt die Validierung
+    fehl und bietet „Save to vXXX“ für die nächste freie Version an.
+- `hooks/tk-multi-publish2/basic/publish_session.py`
+  - Der Publish-Task ist immer aktiv, die Checkbox ist ausgegraut. Die Session ist die Quelle
+    aller Exporte, und nur hier wird die Workfile hochgezählt.
+  - Dieselbe Prüfung auf eine schon gepublishte Version, inklusive „Save to vXXX“, z. B. wenn
+    eine ältere Workfile wieder geöffnet wurde.
   - Der Export läuft über `temp_override`.
   - Es werden nur noch Optionen übergeben, die die jeweilige Blender-Version kennt
     (`renderable_only` gibt es in 5.0 nicht mehr).

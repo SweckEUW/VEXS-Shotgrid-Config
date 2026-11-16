@@ -249,6 +249,19 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         # get the normalized path
         path = sgtk.util.ShotgunPath.normalize(path)
 
+        # ---- geometry is only published together with the session. The work
+        # file is versioned up in the finalize of the session publish, without
+        # it the next publish would run into this version again. The session
+        # task can't be unchecked, but it stays unchecked if the whole session
+        # item was unchecked and a geometry item checked again afterwards.
+        if not _is_session_publish_active(item.parent):
+            error_msg = (
+                "Geometry can only be published together with the Blender "
+                "session. Check the 'Blender Session' item again."
+            )
+            self.logger.error(error_msg)
+            raise Exception(error_msg)
+
         # check that there is still geometry in the scene:
         if not bpy.data.meshes:
             error_msg = (
@@ -292,8 +305,41 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
         geometry_format = settings["Export Format"].value
         item.properties["publish_type"] = GEOMETRY_EXPORTERS[geometry_format]["publish_type"]
 
+        # ---- never overwrite an existing publish, offer the next free version
+        publish_path = item.properties["path"]
+        publish_name = self.get_publish_name(settings, item)
+        if "version" in work_fields and self._publish_exists(
+            item, publish_path, publish_name
+        ):
+            next_path, next_version = _get_next_free_version(
+                path, work_template, publish_template
+            )
+            error_msg = "Version %s of this geometry is already published." % (
+                work_fields["version"],
+            )
+            self.logger.error(
+                error_msg, extra=_get_save_to_version_action(next_path, next_version)
+            )
+            raise Exception(error_msg)
+
         # run the base class validation
         return super(BlenderSessionGeometryPublishPlugin, self).validate(settings, item)
+
+    def _publish_exists(self, item, publish_path, publish_name):
+        """
+        Returns True if the publish file is already on disk or registered in
+        Flow Production Tracking (same check as the base plugin).
+        """
+        if os.path.exists(publish_path):
+            return True
+
+        publishes = self.parent.util.get_conflicting_publishes(
+            item.context,
+            publish_path,
+            publish_name,
+            filters=["sg_status_list", "is_not", None],
+        )
+        return bool(publishes)
 
     def publish(self, settings, item):
         """
@@ -342,6 +388,50 @@ class BlenderSessionGeometryPublishPlugin(HookBaseClass):
 
         # Now that the path has been generated, hand it off to the
         super(BlenderSessionGeometryPublishPlugin, self).publish(settings, item)
+
+
+def _is_session_publish_active(session_item):
+    """
+    Returns True if the publish task of the session item (publish_session.py)
+    is checked in the publisher.
+    """
+    for task in session_item.tasks:
+        plugin_path = task.plugin.path.replace("\\", "/")
+        if plugin_path.endswith("/publish_session.py"):
+            return task.active is not False
+    return False
+
+
+# TODO: method duplicated in publish_session.py
+def _get_next_free_version(work_path, work_template, publish_template):
+    """
+    Returns the next version for which neither the work file nor the publish
+    file exists on disk, as a tuple (work_path, version).
+    """
+    fields = work_template.get_fields(work_path)
+    while True:
+        fields["version"] += 1
+        next_work_path = work_template.apply_fields(fields)
+        next_publish_path = publish_template.apply_fields(fields)
+        if not os.path.exists(next_work_path) and not os.path.exists(
+            next_publish_path
+        ):
+            return next_work_path, fields["version"]
+
+
+# TODO: method duplicated in publish_session.py
+def _get_save_to_version_action(path, version):
+    """
+    Returns a log action dict for saving the session to the given version
+    """
+    return {
+        "action_button": {
+            "label": "Save to v%s" % (version,),
+            "tooltip": "Save the current session to the next free version, "
+            "v%s" % (version,),
+            "callback": lambda: _save_session(path),
+        }
+    }
 
 
 def _get_export_operator(geometry_format):

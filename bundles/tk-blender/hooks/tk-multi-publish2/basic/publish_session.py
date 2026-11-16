@@ -192,7 +192,9 @@ class BlenderSessionPublishPlugin(HookBaseClass):
         self.logger.info(
             "Blender '%s' plugin accepted the current Blender session." % (self.name,)
         )
-        return {"accepted": True, "checked": True}
+        # always publish the session: it is the source of all geometry exports
+        # and the work file is only versioned up in its finalize
+        return {"accepted": True, "checked": True, "enabled": False}
 
     def validate(self, settings, item):
         """
@@ -293,6 +295,24 @@ class BlenderSessionPublishPlugin(HookBaseClass):
         # step. NOTE: this path could change prior to the publish phase.
         item.properties["path"] = path
 
+        # ---- never overwrite an existing publish, offer the next free version
+        # (e.g. an older work file was opened again)
+        if work_template and publish_template and work_template.validate(path):
+            publish_path = self.get_publish_path(settings, item)
+            publish_name = self.get_publish_name(settings, item)
+            if publish_path and self._publish_exists(item, publish_path, publish_name):
+                next_path, next_version = _get_next_free_version(
+                    path, work_template, publish_template
+                )
+                error_msg = "Version %s of this file is already published." % (
+                    work_template.get_fields(path).get("version"),
+                )
+                self.logger.error(
+                    error_msg,
+                    extra=_get_save_to_version_action(next_path, next_version),
+                )
+                raise Exception(error_msg)
+
         # run the base class validation
         return super(BlenderSessionPublishPlugin, self).validate(settings, item)
 
@@ -323,6 +343,22 @@ class BlenderSessionPublishPlugin(HookBaseClass):
 
         # let the base class register the publish
         super(BlenderSessionPublishPlugin, self).publish(settings, item)
+
+    def _publish_exists(self, item, publish_path, publish_name):
+        """
+        Returns True if the publish file is already on disk or registered in
+        Flow Production Tracking (same check as the base plugin).
+        """
+        if os.path.exists(publish_path):
+            return True
+
+        publishes = self.parent.util.get_conflicting_publishes(
+            item.context,
+            publish_path,
+            publish_name,
+            filters=["sg_status_list", "is_not", None],
+        )
+        return bool(publishes)
 
     def finalize(self, settings, item):
         """
@@ -376,6 +412,38 @@ def _save_session(path):
     ensure_folder_exists(folder)
 
     bpy.ops.wm.save_mainfile(filepath=path)
+
+
+# TODO: method duplicated in publish_session_geometry.py
+def _get_next_free_version(work_path, work_template, publish_template):
+    """
+    Returns the next version for which neither the work file nor the publish
+    file exists on disk, as a tuple (work_path, version).
+    """
+    fields = work_template.get_fields(work_path)
+    while True:
+        fields["version"] += 1
+        next_work_path = work_template.apply_fields(fields)
+        next_publish_path = publish_template.apply_fields(fields)
+        if not os.path.exists(next_work_path) and not os.path.exists(
+            next_publish_path
+        ):
+            return next_work_path, fields["version"]
+
+
+# TODO: method duplicated in publish_session_geometry.py
+def _get_save_to_version_action(path, version):
+    """
+    Returns a log action dict for saving the session to the given version
+    """
+    return {
+        "action_button": {
+            "label": "Save to v%s" % (version,),
+            "tooltip": "Save the current session to the next free version, "
+            "v%s" % (version,),
+            "callback": lambda: _save_session(path),
+        }
+    }
 
 
 # TODO: method duplicated in all the blender hooks
